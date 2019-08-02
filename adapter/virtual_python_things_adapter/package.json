@@ -1,0 +1,44 @@
+{
+  "name": "virtual_python_things_adapter",
+  "display_name": "Virtual-Python-Things",
+  "version": "1.0.0",
+  "description": "Python rewrite of Virtual-Things adapter plugin for Mozilla IoT Gateway",
+  "author": "IO42630",
+  "main": "bootstrap.py",
+  "keywords": [
+    "mozilla",
+    "iot",
+    "adapter",
+    "virtual"
+  ],
+  "homepage": "https://github.com/IO42630/ace-adapter",
+  "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IO42630/ace-adapter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/IO42630"
+  },
+  "files": [
+    "LICENSE",
+    "SHA256SUMS",
+    "bootstrap.py",
+    "main.py",
+    "pkg/__init__.py",
+    "pkg/v_adapter.py",
+    "pkg/v_device.py",
+    "pkg/v_property.py",
+    "pkg/templates/thing_templates.py",
+    "requirements.txt",
+    "setup.cfg"
+  ],
+  "moziot": {
+    "api": {
+      "min": 1,
+      "max": 2
+    },
+    "plugin": true,
+    "exec": "python3 {path}/bootstrap.py"
+  }
+}

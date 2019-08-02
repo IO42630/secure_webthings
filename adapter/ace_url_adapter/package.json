@@ -1,0 +1,42 @@
+{
+  "name": "ace_url_adapter",
+  "display_name": "ACE Web Thing",
+  "version": "1.0.0",
+  "description": "Enables adding WebThings by URL. Such a WebThing could be for example a WebThingServer.",
+  "author": "IO42630",
+  "main": "bootstrap.py",
+  "keywords": [
+    "mozilla",
+    "iot",
+    "adapter"
+  ],
+  "homepage": "",
+  "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "bugs": {
+    "url": "https://github.com/IO42630"
+  },
+  "files": [
+    "LICENSE",
+    "bootstrap.py",
+    "main.py",
+    "pkg/__init__.py",
+    "pkg/adapter.py",
+    "pkg/addon_manager_proxy.py",
+    "pkg/property.py",
+    "pkg/templates/thing_templates.py",
+    "requirements.txt",
+    "setup.cfg"
+  ],
+  "moziot": {
+    "api": {
+      "min": 1,
+      "max": 2
+    },
+    "plugin": true,
+    "exec": "python3 {path}/bootstrap.py"
+  }
+}
