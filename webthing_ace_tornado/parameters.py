@@ -27,10 +27,9 @@ AS_IDENTITY = SigningKey.from_der(
 
 AS_PUBLIC_KEY: VerifyingKey = VerifyingKey.from_der(
         bytes.fromhex("3059301306072a8648ce3d020106082a8648ce3d030107034200047069be"
-                "d49cab8ffa5b1c820271aef0bc0c8f5cd149e05c5b9e37686da06d02bd5f"
-                "7bc35ea8265be7c5e276ad7e7d0eb05e4a0551102a66bba88b02b5eb4c33"
-                "55"
-                )
+                      "d49cab8ffa5b1c820271aef0bc0c8f5cd149e05c5b9e37686da06d02bd5f"
+                      "7bc35ea8265be7c5e276ad7e7d0eb05e4a0551102a66bba88b02b5eb4c33"
+                      "55")
         )
 
 RS_IDENTITY: SigningKey = SigningKey.from_der(

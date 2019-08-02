@@ -1,10 +1,6 @@
 import logging
-import sys
-from os import path, pardir
+
 from webthing import SingleThing, WebThingServer
-
-
-sys.path.append(path.join(path.dirname(path.abspath(__file__)), pardir, pardir))
 
 # Comment this in when using the RPiThing .
 # from things.rpi_thing import RPiThing
@@ -12,7 +8,7 @@ from things.virt_rpi_thing import VirtualRPiThing
 from webthing_original.example.parameters import *
 
 
-
+# sys.path.append(path.join(path.dirname(path.abspath(__file__)), pardir, pardir))
 
 
 def run_server():
@@ -23,21 +19,17 @@ def run_server():
                             port = PLAIN_HTTP_RS_PORT)
 
     try:
-        logging.info('start the server')
+        logging.info('Starting the server.')
         logging.info('at PORT: ' + str(PLAIN_HTTP_RS_PORT))
         server.start()
 
     except KeyboardInterrupt:
-        logging.info('stopping the server')
+        logging.info('Stopping the server.')
         server.stop()
-        logging.info('done')
-
-
-
+        logging.info('Done.')
 
 
 if __name__ == '__main__':
-
     logging.basicConfig(level = 10,
                         format = "%(asctime)s %(filename)s:%(lineno)s %(levelname)s %(message)s"
                         )

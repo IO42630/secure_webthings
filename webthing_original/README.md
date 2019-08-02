@@ -1,4 +1,4 @@
-## Original WebThing
+### Original WebThing
 + This example uses the original
 [Python WebThingServer](https://github.com/mozilla-iot/webthing-python "github.com/mozilla-iot/webthing-python")
 by Mozilla. For this reason there is no *webthing* subfolder.

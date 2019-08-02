@@ -1,33 +1,17 @@
-# Create implicit path.
-import sys
-from os import path , pardir
-sys.path.append(path.join(path.dirname(path.abspath(__file__)), pardir, pardir))
-
-
-from aiocoap.numbers.codes import Code
-import aiocoap.resource
-
 import logging
-from webthing.errors import PropertyError
-
-
-from ace.cbor.constants import Keys
-from ace.cose.constants import Key
-from ace.cose.key import CoseKey
-from ace.cose.cose import SignatureVerificationFailed
-
 
 import ace.cose.cwt as cwt
+import aiocoap.resource
+from ace.cbor.constants import Keys
+from ace.cose.constants import Key
+from ace.cose.cose import SignatureVerificationFailed
+from ace.cose.key import CoseKey
 from ace.rs.resource_server import ResourceServer, NotAuthorizedException
-
-
-
+from aiocoap.numbers.codes import Code
 from cbor2 import dumps, loads
-
+from webthing.errors import PropertyError
 
 from webthing_ace_aiocoap.parameters import *
-
-
 from webthing_ace_aiocoap.webthing.errors import *
 
 
@@ -38,7 +22,6 @@ class AceHandler(aiocoap.resource.Resource):
     # class variable
     # contains token_cache and edhoc_server
     # TODO replace *forbidden_thing*
-
 
     rs = ResourceServer(audience = AUDIENCE,
                         identity = RS_IDENTITY,
@@ -53,13 +36,10 @@ class AuthzHandler(AceHandler):
     before the establishment of the *Oscore Context* begins.
     """
 
-
     async def render_post(self, request):
         access_token: bytes = request.payload
 
-        # introspect_payload = self.introspect(access_token)
-
-        # Verify if valid CWT from AS
+        # Verify if CWT from AS is valid
         try:
             decoded = cwt.decode(encoded = access_token,
                                  key = AceHandler.rs.as_public_key)
@@ -67,28 +47,26 @@ class AuthzHandler(AceHandler):
         except SignatureVerificationFailed:
             return aiocoap.Message(code = Code.UNAUTHORIZED)
 
-        # Check if audience claim in token matches audience identifier of this resource server
+        # Check if audience claim in token matches audience id of this RS.
         if decoded[Keys.AUD] != AceHandler.rs.audience:
             return aiocoap.Message(code = Code.FORBIDDEN)
 
-        # Extract PoP CoseKey
+        # Extract PoP CoseKey.
         pop_key: CoseKey = CoseKey.from_cose(decoded[Keys.CNF][Key.COSE_KEY])
 
-        # Store token and store by PoP key id
+        # Store token and PoP key id.
         AceHandler.rs.token_cache.add_token(token = decoded,
                                             pop_key_id = pop_key.key_id)
 
-        # Inform EDHOC Server about new key
+        # Inform EDHOC Server about new key.
         AceHandler.rs.edhoc_server.add_peer_identity(key_id = pop_key.key_id,
                                                      key = pop_key.key)
 
         logging.info('AuthzInfo returning.')
-
         return aiocoap.Message(code = Code.CREATED)
 
 
 class EdhocHandler(AceHandler):
-
 
     async def render_post(self, request):
         message = request.payload
@@ -97,18 +75,16 @@ class EdhocHandler(AceHandler):
                                payload = bytes(response))
 
 
-
-
 class BaseHandler(AceHandler):
     """
     Checks authorization.
     """
+
     def __init__(self, things, coap_uri):
         super().__init__()
         self.things = things
         self.coap_uri = coap_uri
         self.oscore_context = None
-
 
     async def render(self, request):
 
@@ -117,7 +93,6 @@ class BaseHandler(AceHandler):
             for m in coap_uri:
                 http_uri += '/' + str(m)
             return http_uri
-
 
         scope = str(request.code) + ' ' + to_http(self.coap_uri)
         prot, unprot, cipher = loads(request.payload).value
@@ -129,19 +104,17 @@ class BaseHandler(AceHandler):
             return await super().render(request)
 
 
-
-
 class BaseThingHandler(BaseHandler):
     """
     Prepares all that is associated with a thing, such as:
       + `self.thing_id`
       + the `self.thing is None` check
     """
+
     def __init__(self, things, coap_uri):
         super().__init__(things, coap_uri)
         self.thing_id = coap_uri[0]
         self.thing = None
-
 
     # TODO: It would be elegant to replace render_$ with render. Be careful to avoid the recursion error.
     # sync def render(self, request):
@@ -156,25 +129,20 @@ class BaseThingHandler(BaseHandler):
     #    else:
     #        return await super().render(request)
 
-
     async def render_get(self, request):
         """
         Every `render_$` function is delegated by `.render()` in
         """
         self.set_and_check_thing()
 
-
     async def render_post(self, request):
         self.set_and_check_thing()
-
 
     async def render_put(self, request):
         self.set_and_check_thing()
 
-
     async def render_delete(self, request):
         self.set_and_check_thing()
-
 
     def set_and_check_thing(self):
         self.thing = self.things.get_thing(self.thing_id)
@@ -184,7 +152,6 @@ class BaseThingHandler(BaseHandler):
 
 class ThingsHandler(BaseHandler):
 
-
     async def render_get(self, request):
         """"""
         response = [thing.as_thing_description()
@@ -193,7 +160,6 @@ class ThingsHandler(BaseHandler):
 
 
 class ThingHandler(BaseThingHandler):
-
 
     async def render_get(self, request):
         """
@@ -215,7 +181,6 @@ class ThingHandler(BaseThingHandler):
 
 class PropertiesHandler(BaseThingHandler):
     """Handle a request to /properties."""
-
 
     async def render_get(self, request):
         """
@@ -243,12 +208,10 @@ class PropertyHandler(BaseThingHandler):
     therefore in the spirit of REST everything will be done by the scope parameter.
     """
 
-
     def __init__(self, things, coap_uri):
         super().__init__(things, coap_uri)
         _ = self.coap_uri.index('properties')
         self.property_name = coap_uri[_ + 1]
-
 
     async def render_get(self, request):
         """
@@ -271,7 +234,6 @@ class PropertyHandler(BaseThingHandler):
                 return aiocoap.Message(payload = response)
             else:
                 return aiocoap.Message(code = Code.NOT_FOUND)
-
 
     async def render_post(self, request):
         """
@@ -310,7 +272,6 @@ class ActionsHandler(BaseThingHandler):
     Handle GET or POST requests to /<thing_id>/actions .
     """
 
-
     async def render_get(self, request):
         """
         Return the description of the internal queue of actions.
@@ -327,7 +288,6 @@ class ActionsHandler(BaseThingHandler):
         else:
             response = self.thing.get_action_descriptions()
             return aiocoap.Message(payload = self.oscore_context.encrypt(dumps(response)))
-
 
     async def render_post(self, request):
         """
@@ -371,11 +331,11 @@ class ActionHandler(BaseThingHandler):
     """
     Handle GET or POST requests to /<thing_id>/actions/<action_name> .
     """
+
     def __init__(self, things, coap_uri):
         super().__init__(things, coap_uri)
         _ = self.coap_uri.index('actions')
         self.action_name = coap_uri[_ + 1]
-
 
     async def render_get(self, request):
         """
@@ -394,7 +354,6 @@ class ActionHandler(BaseThingHandler):
         else:
             response = self.thing.get_action_descriptions(action_name = self.action_name)
             return aiocoap.Message(payload = self.oscore_context.encrypt(dumps(response)))
-
 
     async def render_post(self, request):
         """
@@ -437,13 +396,12 @@ class ActionIDHandler(BaseThingHandler):
     """
     Handle GET or PUT or DELETE requests to /<thing_id>/actions/<action_name>/<action_id> .
     """
+
     def __init__(self, things, hosts, coap_uri):
         super().__init__(things, hosts, coap_uri)
         _ = self.coap_uri.index('actions')
         self.action_name = coap_uri[_ + 1]
         self.action_id = coap_uri[_ + 2]
-
-
 
     async def render_get(self, request):
         """ """
@@ -460,7 +418,6 @@ class ActionIDHandler(BaseThingHandler):
             response = action.as_action_description()
             return aiocoap.Message(payload = self.oscore_context.encrypt(dumps(response)))
 
-
     async def render_put(self, request):
         try:
             await super().render_put(request)
@@ -471,7 +428,6 @@ class ActionIDHandler(BaseThingHandler):
         else:
             response = '(200: Not yet defined in the spec.)'
             return aiocoap.Message(payload = self.oscore_context.encrypt(dumps(response)))
-
 
     async def render_delete(self, request):
         """ """
@@ -493,6 +449,7 @@ class EventsHandler(BaseThingHandler):
     """
     Handle GET requests to /<thing_id>/events .
     """
+
     async def render_get(self, request):
         """ """
         try:
@@ -506,16 +463,15 @@ class EventsHandler(BaseThingHandler):
             return aiocoap.Message(payload = self.oscore_context.encrypt(dumps(response)))
 
 
-
 class EventHandler(BaseThingHandler):
     """
     Handle GET requests to /<thing_id>/events/<event_name> .
     """
+
     def __init__(self, things, coap_uri):
-        super().__init__(things,  coap_uri)
+        super().__init__(things, coap_uri)
         _ = self.coap_uri.index('events')
         self.event_name = coap_uri[_ + 1]
-
 
     async def render_get(self, request):
         """ """

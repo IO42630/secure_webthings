@@ -1,8 +1,3 @@
-# Create implicit path.
-import sys
-from os import path , pardir
-sys.path.append(path.join(path.dirname(path.abspath(__file__)), pardir, pardir))
-
 # External imports.
 import logging
 from webthing import SingleThing
@@ -17,6 +12,7 @@ AS_URL = PC_AS_URL
 RS_URL = PC_ACE_COAP_RS_URL
 RS_PORT = ACE_COAP_RS_PORT
 HOST = COAP_HOST
+
 
 def run_server():
     """

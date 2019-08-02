@@ -13,14 +13,13 @@ from ace.authz.authorization_server import AuthorizationServer
 from webthing_ace_tornado.parameters import *
 
 
-
 def main():
     # Provision Authorization Server .
     loop = asyncio.get_event_loop()
     app = web.Application(loop = loop)
     server = AuthorizationServer(AS_IDENTITY, app.router)
 
-    # Pre-register Resource Server .
+    # Pre-register Resource Server.
     server.register_resource_server(audience = AUDIENCE,
                                     scopes = SCOPES,
                                     public_key = RS_PUBLIC_KEY

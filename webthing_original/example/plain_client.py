@@ -5,13 +5,6 @@ import json
 from webthing_original.example.parameters import *
 
 
-target_url = PLAIN_HTTP_RS_URL
-
-
-# Comment this in when using an address that is not `localhost` .
-# target_url = 'http://192.168.43.17:8081'
-
-
 async def main():
     client_session = aiohttp.ClientSession()
 
@@ -42,17 +35,14 @@ async def main():
     await client_session.close()
 
 
-
-
-
 async def make_request(session, method, endpoint, _data = None):
     response = None
     if method == 'GET':
-        response = await session.get(target_url + endpoint)
+        response = await session.get(PLAIN_HTTP_RS_URL + endpoint)
     elif method == 'POST':
-        response = await session.post(target_url + endpoint, data = _data)
+        response = await session.post(PLAIN_HTTP_RS_URL + endpoint, data = _data)
     elif method == 'PUT':
-        response = await session.put(target_url + endpoint, data = _data)
+        response = await session.put(PLAIN_HTTP_RS_URL + endpoint, data = _data)
 
     if response.status < 200 or response.status >= 300:
         print(RED + 'ERROR: '
@@ -73,9 +63,6 @@ async def make_request(session, method, endpoint, _data = None):
     except Exception:
         print(GREEN + 'Response (' + method + ' ' + endpoint + ') :' + ENDC)
         print(str(response))
-
-
-
 
 
 if __name__ == '__main__':
