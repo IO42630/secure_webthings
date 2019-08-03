@@ -8,9 +8,6 @@ from things.virt_rpi_thing import VirtualRPiThing
 from webthing_original.example.parameters import *
 
 
-# sys.path.append(path.join(path.dirname(path.abspath(__file__)), pardir, pardir))
-
-
 def run_server():
     thing = VirtualRPiThing()
     thing.name = 'Virtual PLAIN HTTP RPi Thing'

@@ -1,9 +1,3 @@
-# Local imports with implicit path.
-import sys
-from os import path, pardir
-# sys.path.append(path.join(path.dirname(path.abspath(__file__)), pardir))
-
-
 # replace 'localhost' with custom url as needed. e.g. 'http://192.168.43.17:8081'
 HOST: str = 'localhost'
 PLAIN_HTTP_RS_PORT: str = 8081
