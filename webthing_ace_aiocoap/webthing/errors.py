@@ -8,9 +8,10 @@ class PropertyError(Exception):
     """
     pass
 
+
 class ThingNotFoundException(Exception):
     pass
 
+
 class UnauthorizedException(Exception):
     pass
-
