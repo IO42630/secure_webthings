@@ -1,8 +1,3 @@
-# Local imports with implicit path.
-import sys
-from os import path, pardir
-sys.path.append(path.join(path.dirname(path.abspath(__file__)), pardir))
-
 from ecdsa import SigningKey, VerifyingKey
 from ace.authz.authorization_server import Grant
 
@@ -43,10 +38,9 @@ RS_IDENTITY: SigningKey = SigningKey.from_der(
 
 RS_PUBLIC_KEY: VerifyingKey = VerifyingKey.from_der(
         bytes.fromhex('3059301306072a8648ce3d020106082a8648ce3d030107034200046cc415'
-                '12d92fb03cb3b35bed5b494643a8a8a55503e87a90282c78d6c58a7e3c88'
-                'a21c0287e7e8d76b0052b1f1a2dcebfea57714c1210d42f17b335adcb76d'
-                '7a'
-                )
+                      '12d92fb03cb3b35bed5b494643a8a8a55503e87a90282c78d6c58a7e3c88'
+                      'a21c0287e7e8d76b0052b1f1a2dcebfea57714c1210d42f17b335adcb76d'
+                      '7a')
         )
 
 CLIENT_ID = 'ace_client_1'
@@ -88,7 +82,7 @@ SCOPES = ['GET /',
           'POST /actions',
           'GET /actions/switch_led',
           'POST /actions/switch_led',
-            'GET /actions/set_text',
+          'GET /actions/set_text',
           'POST /actions/set_text',
           'GET /events',
           'GET /events/proximity']
