@@ -1,27 +1,21 @@
-import logging
-
 import json
+import logging
 from typing import Optional, Awaitable
 
+import ace.cose.cwt as cwt
 import tornado.concurrent
 import tornado.gen
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
-
-from webthing.server import MultipleThings
-from webthing.errors import PropertyError
-
 from ace.cbor.constants import Keys
 from ace.cose.constants import Key
-from ace.cose.key import CoseKey
 from ace.cose.cose import SignatureVerificationFailed
-
-import ace.cose.cwt as cwt
+from ace.cose.key import CoseKey
 from ace.rs.resource_server import ResourceServer, NotAuthorizedException
-
 from cbor2 import dumps, loads
+from webthing.errors import PropertyError
 
 from webthing_ace_tornado.parameters import *
 
@@ -33,7 +27,6 @@ def perform_action(action):
 
 
 class AceHandler(tornado.web.RequestHandler):
-
     # class variable
     # contains token_cache and edhoc_server
     ace_rs = ResourceServer(audience = AUDIENCE,
@@ -41,10 +34,9 @@ class AceHandler(tornado.web.RequestHandler):
                             as_url = PC_AS_URL,
                             as_public_key = AS_PUBLIC_KEY)
 
-    logging.basicConfig(
-            level = 10,
-            format = "%(asctime)s %(filename)s:%(lineno)s %(levelname)s %(message)s"
-            )
+    _ = "%(asctime)s %(filename)s:%(lineno)s %(levelname)s %(message)s"
+    logging.basicConfig(level = 10,
+                        format = _)
 
     def data_received(self, chunk: bytes) -> Optional[Awaitable[None]]:
         # 'implement' all abstracts methods of super
@@ -55,22 +47,21 @@ class AuthzHandler(AceHandler):
     """Handle a request to /authz-info/."""
 
     def post(self):
-        """
 
-        """
-        access_token = self.request.body
+        access_token = super().request.body
 
         # Verify if valid CWT from AS
         try:
-            decoded = cwt.decode(access_token, key = AceHandler.ace_rs.as_public_key)
-        except SignatureVerificationFailed as err:
+            decoded = cwt.decode(access_token,
+                                 key = super().ace_rs.as_public_key)
+        except SignatureVerificationFailed as error:
             self.set_status(401)
             self.set_header('Content-Type', 'application/json')
-            self.write(json.dumps([{'error': {'error': str(err)}}]))
+            self.write(json.dumps([{'error': {'error': str(error)}}]))
             return
 
-        # Check if audience claim in token matches audience identifier of this resource server
-        if decoded[Keys.AUD] != AceHandler.ace_rs.audience:
+        # Check if audience claim in token matches audience id of this RS
+        if decoded[Keys.AUD] != super().ace_rs.audience:
             self.set_status(403)
             self.set_header('Content-Type', 'application/json')
             self.write(json.dumps([{'error': 'Audience mismatch'}]))
@@ -80,11 +71,12 @@ class AuthzHandler(AceHandler):
         pop_key = CoseKey.from_cose(decoded[Keys.CNF][Key.COSE_KEY])
 
         # Store token and PoP key id
-        AceHandler.ace_rs.token_cache.add_token(token = decoded, pop_key_id = pop_key.key_id)
+        super().ace_rs.token_cache.add_token(token = decoded,
+                                             pop_key_id = pop_key.key_id)
 
         # Inform EDHOC Server about new key
-        AceHandler.ace_rs.edhoc_server.add_peer_identity(pop_key.key_id, pop_key.key)
-
+        super().ace_rs.edhoc_server.add_peer_identity(key_id = pop_key.key_id,
+                                                      key = pop_key.key)
         self.set_status(201)
 
 
@@ -92,7 +84,7 @@ class EdhocHandler(AceHandler):
 
     def post(self):
         message = self.request.body
-        response = AceHandler.ace_rs.edhoc_server.on_receive(message)
+        response = super().ace_rs.edhoc_server.on_receive(message)
         logging.info('EDHOC message was received.')
         self.set_status(201)
         self.write(bytes(response))
@@ -105,8 +97,8 @@ class BaseHandler(AceHandler):
         """
         Initialize the handler.
 
-        things -- list of Things managed by this server
-        hosts -- list of allowed hostnames
+        :param things: list of Things managed by this server
+        :param hosts: -- list of allowed hostnames
         """
         self.things = things
         self.hosts = hosts
@@ -138,25 +130,41 @@ class BaseHandler(AceHandler):
 
     def write_response(self, oscore_context, payload):
         """
-
         :param oscore_context:
         :param payload: Contains the message.
-        :return:
+        :return: None
         """
         self.set_header('Content-Type', 'application/cbor')
         cbor_data_dump = dumps(payload)
         response = oscore_context.encrypt(cbor_data_dump)
         self.write(response)
 
+    def oscore_context(self):
+        """
+        An unauthorized GET request will have *request.body == b''*,\n
+        thus *cbor2.loads()* will fail,\n
+        thus the *try* block.\n
+        Uses CBOR for load/dump of payload/body, another implementation with JSON possible.\n
+        :return: oscore_context
+        """
+        try:
+            prot, unprot, cipher = loads(self.request.body).value
+            return super().ace_rs.oscore_context(unprot, self.scope)
+        except NotAuthorizedException:
+            self.set_status(401)
+            return
+        pass
+
 
 class ThingsHandler(BaseHandler):
     """Handle a request to / when the server manages multiple things."""
+
     # TODO : to test this swap example to MultipleThings
     def get(self):
         """ Handle a GET request. """
         prot, unprot, cipher = loads(self.request.body).value
         try:
-            oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
+            oscore_context = super().ace_rs.oscore_context(unprot, self.scope)
         except NotAuthorizedException:
             raise NotAuthorizedException
 
@@ -171,6 +179,7 @@ class ThingsHandler(BaseHandler):
 
 class ThingHandler(BaseHandler):
     """Handle a request to /."""
+
     # TODO:  This omits all the WebSocket features in the Mozilla original.
     def get(self, thing_id = '0'):
         """ Handle a GET request. """
@@ -179,7 +188,7 @@ class ThingHandler(BaseHandler):
             # thus *cbor2.loads()* will fail,
             # thus place the next line inside *try:*.
             prot, unprot, cipher = loads(self.request.body).value
-            oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
+            oscore_context = super().ace_rs.oscore_context(unprot, self.scope)
         except Exception as e:
             print(e)
             self.set_status(401)
@@ -195,6 +204,7 @@ class PropertiesHandler(BaseHandler):
     Uses CBOR for loads/dumps of payload/body,
     different implementation with JSON possible.
     """
+
     def get(self, thing_id = '0'):
         """
         Handle a GET request.\n
@@ -205,17 +215,7 @@ class PropertiesHandler(BaseHandler):
             self.set_status(404)
             return
 
-        try:
-            # An unauthorized GET request will have *request.body == b''*,
-            # thus *cbor2.loads()* will fail,
-            # thus place the next line inside *try:*.
-            prot, unprot, cipher = loads(self.request.body).value
-            oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
-        except NotAuthorizedException:
-            self.set_status(401)
-            return
-
-        self.write_response(oscore_context = oscore_context,
+        self.write_response(oscore_context = self.oscore_context(),
                             payload = thing.get_properties())
 
 
@@ -231,7 +231,7 @@ class PropertyHandler(BaseHandler):
 
         prot, unprot, cipher = loads(self.request.body).value
         try:
-            oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
+            oscore_context = super().ace_rs.oscore_context(unprot, self.scope)
         except NotAuthorizedException:
             self.set_status(401)
             return
@@ -254,16 +254,8 @@ class PropertyHandler(BaseHandler):
             self.set_status(404)
             return
 
-        # uses CBOR for load/dump of payload/body, another implementation with JSON possible
-        prot, unprot, cipher = loads(self.request.body).value
         try:
-            oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
-        except NotAuthorizedException:
-            self.set_status(401)
-            return
-
-        try:
-            args = loads(oscore_context.decrypt(self.request.body))
+            args = loads(self.oscore_context().decrypt(self.request.body))
             # translate keys from bytes to str
             _args = {}
             for k in args:
@@ -285,7 +277,7 @@ class PropertyHandler(BaseHandler):
                 return
             # code matches ACE http-client : check if this deviation from Mozilla spec is necessary.
             self.set_status(201)
-            self.write_response(oscore_context = oscore_context,
+            self.write_response(oscore_context = self.oscore_context(),
                                 payload = {property_name: thing.get_property(property_name), })
         else:
             self.set_status(404)
@@ -305,15 +297,7 @@ class ActionsHandler(BaseHandler):
             self.set_status(404)
             return
 
-        # uses CBOR for load/dump of payload/body, another implementation with JSON possible
-        prot, unprot, cipher = loads(self.request.body).value
-        try:
-            oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
-        except NotAuthorizedException:
-            self.set_status(401)
-            return
-
-        self.write_response(oscore_context = oscore_context,
+        self.write_response(oscore_context = self.oscore_context(),
                             payload = thing.get_action_descriptions())
 
     def post(self, thing_id = '0'):
@@ -330,7 +314,7 @@ class ActionsHandler(BaseHandler):
         # uses CBOR for load/dump of payload/body, another implementation with JSON possible
         prot, unprot, cipher = loads(self.request.body).value
         try:
-            oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
+            oscore_context = super().ace_rs.oscore_context(unprot, self.scope)
         except NotAuthorizedException:
             self.set_status(401)
             return
@@ -358,10 +342,8 @@ class ActionsHandler(BaseHandler):
                 response.update(action.as_action_description())
 
                 # Start the action
-                tornado.ioloop.IOLoop.current().spawn_callback(
-                        perform_action,
-                        action,
-                        )
+                tornado.ioloop.IOLoop.current().spawn_callback(perform_action,
+                                                               action,)
 
         self.set_status(201)
         self.write(oscore_context.encrypt(dumps(response)))
@@ -382,21 +364,8 @@ class ActionHandler(BaseHandler):
             self.set_status(404)
             return
 
-        # uses CBOR for load/dump of payload/body, another implementation with JSON possible
-        prot, unprot, cipher = loads(self.request.body).value
-        try:
-            self.oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
-        except NotAuthorizedException:
-            self.set_status(401)
-            return
-        ##
-
-
-        self.set_header('Content-Type', 'application/cbor')
-        cbor_data_dump = dumps(thing.get_action_descriptions(action_name = action_name))
-        response = self.oscore_context.encrypt(cbor_data_dump)
-        self.write(response)
-
+        self.write_response(oscore_context = self.oscore_context(),
+                            payload = thing.get_action_descriptions(action_name = action_name))
 
     def post(self, thing_id = '0', action_name = None):
         """
@@ -409,17 +378,8 @@ class ActionHandler(BaseHandler):
             self.set_status(404)
             return
 
-        # uses CBOR for load/dump of payload/body, another implementation with JSON possible
-        prot, unprot, cipher = loads(self.request.body).value
         try:
-            self.oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
-        except NotAuthorizedException:
-            self.set_status(401)
-            return
-        ##
-
-        try:
-            args = loads(self.oscore_context.decrypt(self.request.body))
+            args = loads(self.oscore_context().decrypt(self.request.body))
             # translate keys from bytes to str
             _args = {}
             for k in args:
@@ -443,13 +403,11 @@ class ActionHandler(BaseHandler):
                 response.update(action.as_action_description())
 
                 # Start the action
-                tornado.ioloop.IOLoop.current().spawn_callback(
-                        perform_action,
-                        action,
-                        )
+                tornado.ioloop.IOLoop.current().spawn_callback(perform_action,
+                                                               action,)
 
         self.set_status(201)
-        self.write(self.oscore_context.encrypt(dumps(response)))
+        self.write(self.oscore_context().encrypt(dumps(response)))
 
 
 class ActionIDHandler(BaseHandler):
@@ -468,25 +426,13 @@ class ActionIDHandler(BaseHandler):
             self.set_status(404)
             return
 
-        # uses CBOR for load/dump of payload/body, another implementation with JSON possible
-        prot, unprot, cipher = loads(self.request.body).value
-        try:
-            self.oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
-        except NotAuthorizedException:
-            self.set_status(401)
-            return
-        ##
-
         action = thing.get_action(action_name, action_id)
         if action is None:
             self.set_status(404)
             return
 
-        self.set_header('Content-Type', 'application/cbor')
-        cbor_data_dump = dumps(action.as_action_description())
-        response = self.oscore_context.encrypt(cbor_data_dump)
-        self.write(response)
-
+        self.write_response(oscore_context = self.oscore_context(),
+                            payload = action.as_action_description())
 
     def put(self, thing_id = '0', action_name = None, action_id = None):
         """
@@ -518,15 +464,7 @@ class ActionIDHandler(BaseHandler):
             self.set_status(404)
             return
 
-        # uses CBOR for load/dump of payload/body, another implementation with JSON possible
-        prot, unprot, cipher = loads(self.request.body).value
-        try:
-            self.oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
-        except NotAuthorizedException:
-            self.set_status(401)
-            return
-        ##
-
+        self.oscore_context()
 
         if thing.remove_action(action_name, action_id):
             self.set_status(204)
@@ -548,21 +486,8 @@ class EventsHandler(BaseHandler):
             self.set_status(404)
             return
 
-        # uses CBOR for load/dump of payload/body, another implementation with JSON possible
-        prot, unprot, cipher = loads(self.request.body).value
-        try:
-            self.oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
-        except NotAuthorizedException:
-            self.set_status(401)
-            return
-        ##
-
-
-
-        self.set_header('Content-Type', 'application/cbor')
-        cbor_data_dump = dumps(thing.get_event_descriptions())
-        response = self.oscore_context.encrypt(cbor_data_dump)
-        self.write(response)
+        self.write_response(oscore_context = self.oscore_context(),
+                            payload = thing.get_event_descriptions())
 
 
 class EventHandler(BaseHandler):
@@ -580,15 +505,5 @@ class EventHandler(BaseHandler):
             self.set_status(404)
             return
 
-        # uses CBOR for load/dump of payload/body, another implementation with JSON possible
-        prot, unprot, cipher = loads(self.request.body).value
-        try:
-            self.oscore_context = AceHandler.ace_rs.oscore_context(unprot, self.scope)
-        except NotAuthorizedException:
-            self.set_status(401)
-            return
-
-        self.set_header('Content-Type', 'application/cbor')
-        cbor_data_dump = dumps(thing.get_event_descriptions(event_name = event_name))
-        response = self.oscore_context.encrypt(cbor_data_dump)
-        self.write(response)
+        self.write_response(oscore_context = self.oscore_context(),
+                            payload = thing.get_event_descriptions(event_name = event_name))
